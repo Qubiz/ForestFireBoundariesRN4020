@@ -1,15 +1,20 @@
 package robor.forestfireboundaries;
 
+import robor.forestfireboundaries.protobuf.HeaderProtos;
 import robor.forestfireboundaries.protobuf.HotspotDataProtos;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Scanner;
 
 public class Main {
 
-    private static final String PORT = "COM7";
+    private static final String PORT = "COM4";
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         SerialCommunication serialCommunication = new SerialCommunication(PORT);
         serialCommunication.open();
 
@@ -23,27 +28,45 @@ public class Main {
                 case "stop":
                     break loop;
                 case "send":
-                    HotspotDataProtos.Hotspot hotspot = HotspotDataProtos.Hotspot
-                            .newBuilder()
-                            .setLatitude(1)
-                            .setLongitude(1)
-                            .setTemperature(1)
-                            .build();
-                    //char[] start = {0xAA,0xAA};
-                    //int length = hotspot.toByteArray().length + 2;
-                    //start[1] = (char) length;
-                    //serialCommunication.write(new String(start).getBytes());
-                    serialCommunication.write(new byte[] {0});
-                    hotspot.writeTo(serialCommunication.getOutputStream());
-                    //serialCommunication.write("");
-                    //hotspot.writeTo(serialCommunication.getOutputStream());
+                    Date date = new Date();
+                    DateFormat sdf = new SimpleDateFormat("HH:mm:ss.SSS");
+                    String dateString = sdf.format(date);
+                    String startTime = sdf.format(date);
+
+                    for (int i = 0; i < 1000; i++) {
+                        date = new Date();
+                        dateString = sdf.format(date);
+                        System.out.println("" + i + " " + dateString);
+                        sendHotspotMessage(52.2275864,6.6932629, 500.234, serialCommunication.getOutputStream());
+                        Thread.sleep(100);
+                    }
+
+                    System.out.println("\nStartTime: " + startTime
+                            + "\nEndTime: " + dateString);
                     break;
                 default:
-                    serialCommunication.write(input);
+                    //serialCommunication.write(input);
                     break;
             }
         }
-
         serialCommunication.close();
+    }
+
+    private static void sendHotspotMessage(double latitude, double longitude, double temperature, OutputStream outputStream) {
+        HotspotDataProtos.Hotspot hotspot = HotspotDataProtos.Hotspot.newBuilder()
+                .setLatitude(latitude)
+                .setLongitude(longitude)
+                .setTemperature(temperature)
+                .build();
+        HeaderProtos.Header header = HeaderProtos.Header.newBuilder()
+                .setMessageId(HotspotDataProtos.Hotspot.getDescriptor().getName().hashCode())
+                .setMessageLength(hotspot.getSerializedSize())
+                .build();
+        try {
+            header.writeTo(outputStream);
+            hotspot.writeTo(outputStream);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
